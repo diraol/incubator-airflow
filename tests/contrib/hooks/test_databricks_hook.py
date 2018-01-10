@@ -17,11 +17,11 @@ import json
 import unittest
 
 from airflow import __version__
-from airflow.contrib.hooks.databricks_hook import DatabricksHook, RunState, SUBMIT_RUN_ENDPOINT, _TokenAuth
+from airflow.contrib.hooks.databricks_hook import DatabricksHook, RunState
 from airflow.exceptions import AirflowException
 from airflow.models import Connection
 from airflow.utils import db
-from requests import exceptions as requests_exceptions
+from requests.exceptions import (ConnectionError, Timeout)
 
 try:
     from unittest import mock
@@ -74,11 +74,13 @@ def get_run_endpoint(host):
     """
     return 'https://{}/api/2.0/jobs/runs/get'.format(host)
 
+
 def cancel_run_endpoint(host):
     """
     Utility function to generate the get run endpoint given the host.
     """
     return 'https://{}/api/2.0/jobs/runs/cancel'.format(host)
+
 
 class DatabricksHookTest(unittest.TestCase):
     """
@@ -105,20 +107,21 @@ class DatabricksHookTest(unittest.TestCase):
         self.assertEquals(host, HOST)
 
     def test_init_bad_retry_limit(self):
-        with self.assertRaises(AssertionError):
-            DatabricksHook(retry_limit = 0)
+        with self.assertRaises(AirflowException):
+            DatabricksHook(retry_limit=0)
 
     @mock.patch('airflow.contrib.hooks.databricks_hook.requests')
     def test_do_api_call_with_error_retry(self, mock_requests):
-        for exception in [requests_exceptions.ConnectionError, requests_exceptions.Timeout]:
+        for exception in [ConnectionError, Timeout]:
             with mock.patch.object(self.hook.log, 'error') as mock_errors:
                 mock_requests.reset_mock()
                 mock_requests.post.side_effect = exception()
 
                 with self.assertRaises(AirflowException):
-                    self.hook._do_api_call(SUBMIT_RUN_ENDPOINT, {})
+                    self.hook._do_api_call('2.0/jobs/runs/submit', {})
 
-                self.assertEquals(len(mock_errors.mock_calls), self.hook.retry_limit)
+                self.assertEquals(len(mock_errors.mock_calls),
+                                  self.hook.retry_limit)
 
     @mock.patch('airflow.contrib.hooks.databricks_hook.requests')
     def test_do_api_call_with_bad_status_code(self, mock_requests):
@@ -126,7 +129,7 @@ class DatabricksHookTest(unittest.TestCase):
         status_code_mock = mock.PropertyMock(return_value=500)
         type(mock_requests.post.return_value).status_code = status_code_mock
         with self.assertRaises(AirflowException):
-            self.hook._do_api_call(SUBMIT_RUN_ENDPOINT, {})
+            self.hook._do_api_call('2.0/jobs/runs/submit', {})
 
     @mock.patch('airflow.contrib.hooks.databricks_hook.requests')
     def test_submit_run(self, mock_requests):
@@ -135,10 +138,10 @@ class DatabricksHookTest(unittest.TestCase):
         status_code_mock = mock.PropertyMock(return_value=200)
         type(mock_requests.post.return_value).status_code = status_code_mock
         json = {
-          'notebook_task': NOTEBOOK_TASK,
-          'new_cluster': NEW_CLUSTER
+            'notebook_task': NOTEBOOK_TASK,
+            'new_cluster': NEW_CLUSTER
         }
-        run_id = self.hook.submit_run(json)
+        run_id = self.hook.jobs_runs_submit(json).get('run_id')
 
         self.assertEquals(run_id, '1')
         mock_requests.post.assert_called_once_with(
@@ -195,7 +198,7 @@ class DatabricksHookTest(unittest.TestCase):
         status_code_mock = mock.PropertyMock(return_value=200)
         type(mock_requests.post.return_value).status_code = status_code_mock
 
-        self.hook.cancel_run(RUN_ID)
+        self.hook.jobs_runs_cancel(RUN_ID)
 
         mock_requests.post.assert_called_once_with(
             cancel_run_endpoint(HOST),
@@ -226,10 +229,10 @@ class DatabricksHookTokenTest(unittest.TestCase):
         status_code_mock = mock.PropertyMock(return_value=200)
         type(mock_requests.post.return_value).status_code = status_code_mock
         json = {
-          'notebook_task': NOTEBOOK_TASK,
-          'new_cluster': NEW_CLUSTER
+            'notebook_task': NOTEBOOK_TASK,
+            'new_cluster': NEW_CLUSTER
         }
-        run_id = self.hook.submit_run(json)
+        run_id = self.hook.jobs_runs_submit(json).get('run_id')
 
         self.assertEquals(run_id, '1')
         args = mock_requests.post.call_args
