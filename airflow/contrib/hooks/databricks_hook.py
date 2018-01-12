@@ -46,7 +46,8 @@ class DatabricksHook(BaseHook):
         # '2.0/jobs/delete': Endpoint('POST', '2.0/jobs/delete', ''),
         # '2.0/jobs/get': Endpoint('GET', '2.0/jobs/get', ''),
         # '2.0/jobs/reset': Endpoint('POST', '2.0/jobs/reset', ''),
-        '2.0/jobs/run-now': Endpoint('POST', '2.0/jobs/run-now', ''),
+        '2.0/jobs/run-now': Endpoint('POST', '2.0/jobs/run-now',
+                                     '2.0/jobs/run-now'),
         '2.0/jobs/runs/submit': Endpoint('POST', '2.0/jobs/runs/submit',
                                          'jobs_runs_submit'),
         # '2.0/jobs/runs/list': Endpoint('GET', '2.0/jobs/runs/list', ''),
@@ -173,6 +174,28 @@ class DatabricksHook(BaseHook):
         except AttributeError:
             AirflowException('Endpoint handler %s not yet implemented.',
                              endpoint)
+
+    def jobs_run_now(self, json):
+        """Call the ``api/2.0/jobs/run-now`` endpoint.
+
+        'Runs the job now, and returns the run_id of the triggered run.'
+
+        The given json MUST have job_id attribute with the job to be triggered.
+
+        Optionally it can have a 'notebook_params' or 'jar_params' attribute,
+        depending on what is expected on the job.
+
+        The given json MUST have job_id attribute with the job to be triggered.
+
+        See more at: https://docs.databricks.com/api/latest/jobs.html#run-now
+
+        :param json: The data used in the body of the request to the 'run'
+           endpoint.
+        :type dict:
+        :return: A dict with two keys: 'run_id' and 'number_in_job'
+        :rtype: dict
+        """
+        return self._do_api_call(self.API['2.0/jobs/run-now'], json)
 
     def jobs_runs_submit(self, json):
         """Call the ``api/2.0/jobs/runs/submit`` endpoint.
