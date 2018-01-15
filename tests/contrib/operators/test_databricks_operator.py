@@ -13,12 +13,14 @@
 # limitations under the License.
 #
 
-import jinja2
 import unittest
 from datetime import datetime
 
 from airflow.contrib.hooks.databricks_hook import RunState
-from airflow.contrib.operators.databricks_operator import DatabricksSubmitRunOperator
+from airflow.contrib.operators.databricks_operator import (
+    DatabricksOperator, DatabricksSubmitRunOperator,
+    DatabricksJobsRunNowOperator
+)
 from airflow.exceptions import AirflowException
 from airflow.models import DAG
 
@@ -60,11 +62,13 @@ class DatabricksSubmitRunOperatorTest(unittest.TestCase):
         """
         Test the initializer with the named parameters.
         """
-        op = DatabricksSubmitRunOperator(task_id=TASK_ID, new_cluster=NEW_CLUSTER, notebook_task=NOTEBOOK_TASK)
+        op = DatabricksSubmitRunOperator(task_id=TASK_ID,
+                                         new_cluster=NEW_CLUSTER,
+                                         notebook_task=NOTEBOOK_TASK)
         expected = op._deep_string_coerce({
-          'new_cluster': NEW_CLUSTER,
-          'notebook_task': NOTEBOOK_TASK,
-          'run_name': TASK_ID
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': TASK_ID
         })
         self.assertDictEqual(expected, op.json)
 
@@ -73,14 +77,14 @@ class DatabricksSubmitRunOperatorTest(unittest.TestCase):
         Test the initializer with json data.
         """
         json = {
-          'new_cluster': NEW_CLUSTER,
-          'notebook_task': NOTEBOOK_TASK
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK
         }
         op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=json)
         expected = op._deep_string_coerce({
-          'new_cluster': NEW_CLUSTER,
-          'notebook_task': NOTEBOOK_TASK,
-          'run_name': TASK_ID
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': TASK_ID
         })
         self.assertDictEqual(expected, op.json)
 
@@ -89,15 +93,15 @@ class DatabricksSubmitRunOperatorTest(unittest.TestCase):
         Test the initializer with a specified run_name.
         """
         json = {
-          'new_cluster': NEW_CLUSTER,
-          'notebook_task': NOTEBOOK_TASK,
-          'run_name': RUN_NAME
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': RUN_NAME
         }
         op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=json)
         expected = op._deep_string_coerce({
-          'new_cluster': NEW_CLUSTER,
-          'notebook_task': NOTEBOOK_TASK,
-          'run_name': RUN_NAME
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': RUN_NAME
         })
         self.assertDictEqual(expected, op.json)
 
@@ -109,29 +113,30 @@ class DatabricksSubmitRunOperatorTest(unittest.TestCase):
         """
         override_new_cluster = {'workers': 999}
         json = {
-          'new_cluster': NEW_CLUSTER,
-          'notebook_task': NOTEBOOK_TASK,
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
         }
-        op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=json, new_cluster=override_new_cluster)
+        op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=json,
+                                         new_cluster=override_new_cluster)
         expected = op._deep_string_coerce({
-          'new_cluster': override_new_cluster,
-          'notebook_task': NOTEBOOK_TASK,
-          'run_name': TASK_ID,
+            'new_cluster': override_new_cluster,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': TASK_ID,
         })
         self.assertDictEqual(expected, op.json)
 
     def test_init_with_templating(self):
         json = {
-          'new_cluster': NEW_CLUSTER,
-          'notebook_task': TEMPLATED_NOTEBOOK_TASK,
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': TEMPLATED_NOTEBOOK_TASK,
         }
         dag = DAG('test', start_date=datetime.now())
         op = DatabricksSubmitRunOperator(dag=dag, task_id=TASK_ID, json=json)
         op.json = op.render_template('json', op.json, {'ds': DATE})
         expected = op._deep_string_coerce({
-          'new_cluster': NEW_CLUSTER,
-          'notebook_task': RENDERED_TEMPLATED_NOTEBOOK_TASK,
-          'run_name': TASK_ID,
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': RENDERED_TEMPLATED_NOTEBOOK_TASK,
+            'run_name': TASK_ID,
         })
         self.assertDictEqual(expected, op.json)
 
@@ -140,10 +145,11 @@ class DatabricksSubmitRunOperatorTest(unittest.TestCase):
             'test': datetime.now()
         }
         # Looks a bit weird since we have to escape regex reserved symbols.
-        exception_message = 'Type \<(type|class) \'datetime.datetime\'\> used ' + \
-                        'for parameter json\[test\] is not a number or a string'
+        exception_message = (r"Type <(type|class) 'datetime.datetime'> used "
+                             "for parameter json[test] is not a number or "
+                             "a string")
         with self.assertRaisesRegexp(AirflowException, exception_message):
-            op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=json)
+            DatabricksSubmitRunOperator(task_id=TASK_ID, json=json)
 
     def test_deep_string_coerce(self):
         op = DatabricksSubmitRunOperator(task_id='test')
@@ -171,20 +177,21 @@ class DatabricksSubmitRunOperatorTest(unittest.TestCase):
         db_mock = db_mock_class.return_value
         db_mock.jobs_runs_submit.return_value = {'run_id': 1}
         db_mock.get_api_method.return_value = db_mock.jobs_runs_submit
-        db_mock.get_run_state.return_value = RunState('TERMINATED', 'SUCCESS', '')
+        db_mock.get_run_state.return_value = RunState('TERMINATED', 'SUCCESS',
+                                                      '')
 
         run = {
-          'new_cluster': NEW_CLUSTER,
-          'notebook_task': NOTEBOOK_TASK,
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
         }
         op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=run)
 
         op.execute(None)
 
         expected = op._deep_string_coerce({
-          'new_cluster': NEW_CLUSTER,
-          'notebook_task': NOTEBOOK_TASK,
-          'run_name': TASK_ID
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': TASK_ID
         })
         db_mock_class.assert_called_once_with(
             DEFAULT_CONN_ID,
@@ -202,11 +209,12 @@ class DatabricksSubmitRunOperatorTest(unittest.TestCase):
         db_mock = db_mock_class.return_value
         db_mock.jobs_runs_submit.return_value = {'run_id': 1}
         db_mock.get_api_method.return_value = db_mock.jobs_runs_submit
-        db_mock.get_run_state.return_value = RunState('TERMINATED', 'FAILED', '')
+        db_mock.get_run_state.return_value = RunState('TERMINATED', 'FAILED',
+                                                      '')
 
         run = {
-          'new_cluster': NEW_CLUSTER,
-          'notebook_task': NOTEBOOK_TASK,
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
         }
         op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=run)
 
@@ -214,14 +222,14 @@ class DatabricksSubmitRunOperatorTest(unittest.TestCase):
             op.execute(None)
 
         expected = op._deep_string_coerce({
-          'new_cluster': NEW_CLUSTER,
-          'notebook_task': NOTEBOOK_TASK,
-          'run_name': TASK_ID,
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': TASK_ID,
         })
         endpoint = '2.0/jobs/runs/submit'
         db_mock_class.assert_called_once_with(
-                DEFAULT_CONN_ID,
-                retry_limit=op.databricks_retry_limit)
+            DEFAULT_CONN_ID,
+            retry_limit=op.databricks_retry_limit)
         db_mock.get_api_method.assert_called_once_with(endpoint)
         db_mock.jobs_runs_submit.assert_called_once_with(expected)
         db_mock.get_run_page_url.assert_called_once_with(RUN_ID)
@@ -231,8 +239,8 @@ class DatabricksSubmitRunOperatorTest(unittest.TestCase):
     @mock.patch('airflow.contrib.operators.databricks_operator.DatabricksHook')
     def test_on_kill(self, db_mock_class):
         run = {
-          'new_cluster': NEW_CLUSTER,
-          'notebook_task': NOTEBOOK_TASK,
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
         }
         op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=run)
         db_mock = db_mock_class.return_value
@@ -242,3 +250,196 @@ class DatabricksSubmitRunOperatorTest(unittest.TestCase):
 
         db_mock.cancel_run.assert_called_once_with(RUN_ID)
 
+
+class DatabricksJobsRunNowOperatorTest(unittest.TestCase):
+    def test_init_with_named_parameters(self):
+        """
+        Test the initializer with the named parameters.
+        """
+        op = DatabricksSubmitRunOperator(task_id=TASK_ID,
+                                         new_cluster=NEW_CLUSTER,
+                                         notebook_task=NOTEBOOK_TASK)
+        expected = op._deep_string_coerce({
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': TASK_ID
+        })
+        self.assertDictEqual(expected, op.json)
+
+    def test_init_with_json(self):
+        """
+        Test the initializer with json data.
+        """
+        json = {
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK
+        }
+        op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=json)
+        expected = op._deep_string_coerce({
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': TASK_ID
+        })
+        self.assertDictEqual(expected, op.json)
+
+    def test_init_with_specified_run_name(self):
+        """
+        Test the initializer with a specified run_name.
+        """
+        json = {
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': RUN_NAME
+        }
+        op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=json)
+        expected = op._deep_string_coerce({
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': RUN_NAME
+        })
+        self.assertDictEqual(expected, op.json)
+
+    def test_init_with_merging(self):
+        """
+        Test the initializer when json and other named parameters are both
+        provided. The named parameters should override top level keys in the
+        json dict.
+        """
+        override_new_cluster = {'workers': 999}
+        json = {
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+        }
+        op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=json,
+                                         new_cluster=override_new_cluster)
+        expected = op._deep_string_coerce({
+            'new_cluster': override_new_cluster,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': TASK_ID,
+        })
+        self.assertDictEqual(expected, op.json)
+
+    def test_init_with_templating(self):
+        json = {
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': TEMPLATED_NOTEBOOK_TASK,
+        }
+        dag = DAG('test', start_date=datetime.now())
+        op = DatabricksSubmitRunOperator(dag=dag, task_id=TASK_ID, json=json)
+        op.json = op.render_template('json', op.json, {'ds': DATE})
+        expected = op._deep_string_coerce({
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': RENDERED_TEMPLATED_NOTEBOOK_TASK,
+            'run_name': TASK_ID,
+        })
+        self.assertDictEqual(expected, op.json)
+
+    def test_init_with_bad_type(self):
+        json = {
+            'test': datetime.now()
+        }
+        # Looks a bit weird since we have to escape regex reserved symbols.
+        exception_message = ("Type <(type|class) 'datetime.datetime'> used "
+                             "for parameter json[test] is not a number or a "
+                             "string")
+        with self.assertRaisesRegexp(AirflowException, exception_message):
+            DatabricksSubmitRunOperator(task_id=TASK_ID, json=json)
+
+    def test_deep_string_coerce(self):
+        op = DatabricksSubmitRunOperator(task_id='test')
+        test_json = {
+            'test_int': 1,
+            'test_float': 1.0,
+            'test_dict': {'key': 'value'},
+            'test_list': [1, 1.0, 'a', 'b'],
+            'test_tuple': (1, 1.0, 'a', 'b')
+        }
+        expected = {
+            'test_int': '1',
+            'test_float': '1.0',
+            'test_dict': {'key': 'value'},
+            'test_list': ['1', '1.0', 'a', 'b'],
+            'test_tuple': ['1', '1.0', 'a', 'b']
+        }
+        self.assertDictEqual(op._deep_string_coerce(test_json), expected)
+
+    @mock.patch('airflow.contrib.operators.databricks_operator.DatabricksHook')
+    def test_exec_success(self, db_mock_class):
+        """
+        Test the execute function in case where the run is successful.
+        """
+        db_mock = db_mock_class.return_value
+        db_mock.jobs_runs_submit.return_value = {'run_id': 1}
+        db_mock.get_api_method.return_value = db_mock.jobs_runs_submit
+        db_mock.get_run_state.return_value = RunState('TERMINATED', 'SUCCESS',
+                                                      '')
+
+        run = {
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+        }
+        op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=run)
+
+        op.execute(None)
+
+        expected = op._deep_string_coerce({
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': TASK_ID
+        })
+        db_mock_class.assert_called_once_with(
+            DEFAULT_CONN_ID,
+            retry_limit=op.databricks_retry_limit)
+        db_mock.jobs_runs_submit.assert_called_once_with(expected)
+        db_mock.get_run_page_url.assert_called_once_with(RUN_ID)
+        db_mock.get_run_state.assert_called_once_with(RUN_ID)
+        self.assertEquals(RUN_ID, op.run_id)
+
+    @mock.patch('airflow.contrib.operators.databricks_operator.DatabricksHook')
+    def test_exec_failure(self, db_mock_class):
+        """
+        Test the execute function in case where the run failed.
+        """
+        db_mock = db_mock_class.return_value
+        db_mock.jobs_runs_submit.return_value = {'run_id': 1}
+        db_mock.get_api_method.return_value = db_mock.jobs_runs_submit
+        db_mock.get_run_state.return_value = RunState('TERMINATED', 'FAILED',
+                                                      '')
+
+        run = {
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+        }
+        op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=run)
+
+        with self.assertRaises(AirflowException):
+            op.execute(None)
+
+        expected = op._deep_string_coerce({
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+            'run_name': TASK_ID,
+        })
+        endpoint = '2.0/jobs/runs/submit'
+        db_mock_class.assert_called_once_with(
+            DEFAULT_CONN_ID,
+            retry_limit=op.databricks_retry_limit)
+        db_mock.get_api_method.assert_called_once_with(endpoint)
+        db_mock.jobs_runs_submit.assert_called_once_with(expected)
+        db_mock.get_run_page_url.assert_called_once_with(RUN_ID)
+        db_mock.get_run_state.assert_called_once_with(RUN_ID)
+        self.assertEquals(RUN_ID, op.run_id)
+
+    @mock.patch('airflow.contrib.operators.databricks_operator.DatabricksHook')
+    def test_on_kill(self, db_mock_class):
+        run = {
+            'new_cluster': NEW_CLUSTER,
+            'notebook_task': NOTEBOOK_TASK,
+        }
+        op = DatabricksSubmitRunOperator(task_id=TASK_ID, json=run)
+        db_mock = db_mock_class.return_value
+        op.run_id = RUN_ID
+
+        op.on_kill()
+
+        db_mock.cancel_run.assert_called_once_with(RUN_ID)
