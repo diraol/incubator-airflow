@@ -300,6 +300,89 @@ class DatabricksSubmitRunOperator(DatabricksOperator):
             json['libraries'] = libraries
 
         super(DatabricksSubmitRunOperator, self).__init__(
-            endpoint='2.0/jobs/runs/submit',
-            json=json,
-            **kwargs)
+            endpoint='2.0/jobs/runs/submit', json=json, **kwargs)
+
+
+class DatabricksJobsRunNowOperator(DatabricksOperator):
+    """
+    Submits an Spark job run to Databricks using the
+    `api/2.0/jobs/run-now
+    <https://docs.databricks.com/api/latest/jobs.html#run-now>`_
+    API endpoint.
+
+    There are two ways to instantiate this operator.
+
+    In the first way, you can take the JSON payload that you typically use
+    to call the ``api/2.0/jobs/run-submit`` endpoint and pass it directly
+    to our ``DatabricksJobsRunNowOperator`` through the ``json`` parameter.
+    For example ::
+        json = {
+          'job_id': 1,
+          'jar_params': ["param1", "param2"]
+        }
+        notebook_run = DatabricksJobsRunNowOperator(task_id='notebook_run',
+                                                   json=json)
+
+    Another way to accomplish the same thing is to use the named parameters
+    of the ``DatabricksJobsRunNowOperator`` directly. Note that there is exactly
+    one named parameter for each top level parameter in the ``run-now``
+    endpoint. In this method, your code would look like this: ::
+        notebook_params = {
+            "dry-run": "true",
+            "oldest-time-to-consider": "1457570074236"
+        }
+        notebook_run = DatabricksSubmitRunOperator(
+            task_id='notebook_run',
+            job_id=1,
+            notebook_params=notebook_params)
+
+    In the case where both the json parameter **AND** the named parameters are
+    provided, they will be merged together. If there are conflicts during the
+    merge, the named parameters will take precedence and override the top level
+    ``json`` keys.
+
+    Currently the named parameters that ``DatabricksSubmitRunOperator``
+    supports are:
+        - ``job_id``
+        - ``notebook_params``
+        - ``jar_params``
+
+    :param json: A JSON object containing API parameters which will be passed
+        directly to the ``api/2.0/jobs/run-submit`` endpoint. The other named
+        parameters (i.e. ``job_id``, ``noteboot_params``..) to this
+        operator will be merged with this json dictionary if they are provided.
+        If there are conflicts during the merge, the named parameters will take
+        precedence and override the top level json keys. This field will be
+        templated.
+
+        .. seealso::
+            For more information about templating see :ref:`jinja-templating`.
+            https://docs.databricks.com/api/latest/jobs.html#run-now
+    :type json: dict
+    :param job_id: The ID of the job to be used on databricks.
+    :type job_id: int
+    :param notebook_params: Params to be passed to the notebook to be run, if
+        the job runs a notebook..
+    :type notebook_params: dict
+    :param jar_params: A list with the params (as strings) to be passed to the
+        jar to be run, if the job uses a Jar.
+    :type jar_params: list
+    """
+
+    def __init__(self, json=None, job_id=None, notebook_params=None,
+                 jar_params=None, **kwargs):
+        """
+        Creates a new ``DatabricksJobsRunNowOperator``.
+        """
+        json = json or {}
+        if job_id is not None:
+            json['job_id'] = job_id
+        if 'job_id' not in json or not json['job_id']:
+            raise AirflowException('You must pass a job_id')
+        if notebook_params is not None:
+            json['notebook_params'] = notebook_params
+        if jar_params is not None:
+            json['jar_params'] = jar_params
+
+        super(DatabricksJobsRunNowOperator, self).__init__(
+            endpoint='2.0/jobs/run-now', json=json, **kwargs)
