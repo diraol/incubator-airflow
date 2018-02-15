@@ -425,6 +425,30 @@ class TestVarImportView(unittest.TestCase):
         self.assertIn('KEY', body)
         self.assertIn('VALUE', body)
 
+    def test_import_int_variable(self):
+        content = b'{"IntKey": 60}'
+        response = self.app.post(
+            self.IMPORT_ENDPOINT,
+            data={'file': (io.BytesIO(content), 'test.json')},
+            follow_redirects=True
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.data.decode('utf-8')
+        self.assertIn('IntKey', body)
+        self.assertIn('60', body)
+
+    def test_import_list_variable(self):
+        content = b'{"ListKey": [1,2]}'
+        response = self.app.post(
+            self.IMPORT_ENDPOINT,
+            data={'file': (io.BytesIO(content), 'test.json')},
+            follow_redirects=True
+        )
+        self.assertEqual(response.status_code, 200)
+        body = response.data.decode('utf-8')
+        self.assertIn('ListKey', body)
+        self.assertIn('[1, 2]', body)
+
 
 class TestMountPoint(unittest.TestCase):
     def setUp(self):
